@@ -2,7 +2,7 @@
     "id": "app.retro-miner.com?version=0.1",
     "name": "Retro Miner",
     "short_name": "Retro Miner",
-    "start_url": "/",
+    "start_url": "./",
     "orientation": "portrait",
     "description": "A retro-style mining game.",
     "icons": [
