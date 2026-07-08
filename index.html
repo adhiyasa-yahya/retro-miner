@@ -6,468 +6,58 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Retro Miner</title>
-
-    <style>
-        html,
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-
-            overflow: hidden;
-
-            touch-action: none;
-
-            -webkit-user-select: none;
-            user-select: none;
-
-            -webkit-touch-callout: none;
-            -webkit-tap-highlight-color: transparent;
-
-            overscroll-behavior: none;
-        }
-
-        body {
-            background: #111;
-
-            display: flex;
-            flex-direction: column;
-
-            justify-content: center;
-            align-items: center;
-
-            min-height: 100vh;
-
-            font-family: monospace;
-
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        body:after {
-            content: "";
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .03) 0 2px, transparent 2px 4px);
-        }
-
-        canvas {
-            image-rendering: pixelated;
-
-            width: min(95vw, 900px);
-            height: auto;
-
-            aspect-ratio: 320/240;
-
-            border: 5px solid #888;
-            background: #0f380f;
-
-            box-sizing: border-box;
-        }
-
-        .dpad {
-            display: none;
-            margin: 24px auto 0;
-
-            display: grid;
-            grid-template-columns: 80px 80px 80px;
-            grid-template-rows: 80px 80px 80px;
-            gap: 8px;
-
-            justify-content: center;
-            align-items: center;
-        }
-
-        @media (pointer:coarse) {
-            .dpad {
-                display: grid;
-            }
-        }
-
-        .btn {
-            width: 80px;
-            height: 80px;
-
-            background: #333;
-            color: #0f0;
-
-            border: 4px solid #777;
-            border-radius: 18px;
-
-            font-size: 40px;
-            font-weight: bold;
-
-            display: flex;
-            justify-content: center;
-            align-items: center;
-
-            cursor: pointer;
-            user-select: none;
-
-            transition: all .08s ease;
-
-            box-shadow:
-                0 0 10px #000,
-                inset 0 0 6px rgba(255, 255, 255, .15);
-        }
-
-        .btn:active,
-        .btn.active {
-            transform: scale(.9);
-
-            background: #0f0;
-            color: #111;
-
-            box-shadow:
-                0 0 25px #0f0,
-                inset 0 0 15px #fff;
-        }
-
-        .up {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        .left {
-            grid-column: 1;
-            grid-row: 2;
-        }
-
-        .right {
-            grid-column: 3;
-            grid-row: 2;
-        }
-
-        .down {
-            grid-column: 2;
-            grid-row: 3;
-        }
-    </style>
-
+    <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
     <canvas id="game" width="320" height="240"></canvas>
-    <div class="dpad">
+
+    <!-- MENU OVERLAY -->
+    <div id="menu-overlay" class="overlay visible">
+        <div class="overlay-content">
+            <h1>RETRO MINER</h1>
+            <p class="subtitle">Collect the gold, avoid the enemies!</p>
+            <p class="high-score">High Score: <span id="menu-hs">0</span></p>
+            <button id="btn-start" class="btn-overlay">START GAME</button>
+            <p class="hint">Arrow keys / D-Pad to move &bull; ESC to pause</p>
+        </div>
+    </div>
+
+    <!-- PAUSE OVERLAY -->
+    <div id="pause-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h1>PAUSED</h1>
+            <p>Press ESC to resume</p>
+        </div>
+    </div>
+
+    <!-- GAME OVER OVERLAY -->
+    <div id="gameover-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h1>GAME OVER</h1>
+            <p class="final-score">Score: <span id="final-score">0</span></p>
+            <p id="new-hs-msg" class="new-highscore hidden">NEW HIGH SCORE!</p>
+            <p class="high-score">High Score: <span id="gameover-hs">0</span></p>
+            <button id="btn-restart" class="btn-overlay">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <!-- D-PAD -->
+    <div class="dpad" id="dpad">
         <div class="btn up" data-key="ArrowUp">▲</div>
         <div class="btn left" data-key="ArrowLeft">◀</div>
         <div class="btn right" data-key="ArrowRight">▶</div>
         <div class="btn down" data-key="ArrowDown">▼</div>
     </div>
 
-<script>
-        const canvas = document.getElementById("game");
-        const ctx = canvas.getContext("2d");
-
-        const TILE = 16;
-        const COLS = 20;
-        const ROWS = 15;
-
-        let level = 1;
-        let score = 0;
-        let timer = 60;
-
-        let map = [];
-        let player = { x: 1, y: 1 };
-
-        let enemies = [];
-
-        function random(n) {
-            return Math.floor(Math.random() * n);
-        }
-
-        function generate() {
-
-            map = [];
-
-            for (let y = 0; y < ROWS; y++) {
-
-                let row = [];
-
-                for (let x = 0; x < COLS; x++) {
-
-                    if (
-                        x == 0 ||
-                        y == 0 ||
-                        x == COLS - 1 ||
-                        y == ROWS - 1 ||
-                        Math.random() < 0.12
-                    ) {
-                        row.push("#");
-                    } else {
-                        row.push(".");
-                    }
-
-                }
-
-                map.push(row);
-
-            }
-
-            player.x = 1;
-            player.y = 1;
-
-            map[player.y][player.x] = ".";
-
-            enemies = [];
-
-            for (let i = 0; i < level; i++) {
-
-                let x, y;
-
-                do {
-
-                    x = random(COLS);
-                    y = random(ROWS);
-
-                } while (map[y][x] !== ".");
-
-                enemies.push({ x, y });
-
-            }
-
-            for (let i = 0; i < 6; i++) {
-
-                let x, y;
-
-                do {
-
-                    x = random(COLS);
-                    y = random(ROWS);
-
-                } while (map[y][x] !== ".");
-
-                map[y][x] = "$";
-
-            }
-
-        }
-
-        generate();
-
-        let keys = {};
-
-        document.addEventListener("keydown", e => {
-            keys[e.key] = true;
-        });
-
-        document.addEventListener("keyup", e => {
-            keys[e.key] = false;
-        });
-
-        function move(dx, dy) {
-
-            let nx = player.x + dx;
-            let ny = player.y + dy;
-
-            if (map[ny][nx] == "#") return;
-
-            if (map[ny][nx] == "$") {
-                score += 10;
-                map[ny][nx] = ".";
-            }
-
-            player.x = nx;
-            player.y = ny;
-
-        }
-
-        function input() {
-
-            if (keys.ArrowUp) {
-                move(0, -1);
-                keys.ArrowUp = false;
-            }
-
-            if (keys.ArrowDown) {
-                move(0, 1);
-                keys.ArrowDown = false;
-            }
-
-            if (keys.ArrowLeft) {
-                move(-1, 0);
-                keys.ArrowLeft = false;
-            }
-
-            if (keys.ArrowRight) {
-                move(1, 0);
-                keys.ArrowRight = false;
-            }
-
-        }
-
-        let enemyTick = 0;
-
-        function update() {
-
-            input();
-
-            enemyTick++;
-
-            if (enemyTick > 15) {
-
-                enemyTick = 0;
-
-                for (let e of enemies) {
-
-                    let dir = random(4);
-
-                    let dx = [1, -1, 0, 0][dir];
-                    let dy = [0, 0, 1, -1][dir];
-
-                    let nx = e.x + dx;
-                    let ny = e.y + dy;
-
-                    if (map[ny][nx] != "#") {
-                        e.x = nx;
-                        e.y = ny;
-                    }
-
-                    if (e.x == player.x && e.y == player.y) {
-
-                        alert("GAME OVER\nScore : " + score);
-
-                        score = 0;
-                        level = 1;
-                        timer = 60;
-                        generate();
-
-                    }
-
-                }
-
-            }
-
-            let gold = 0;
-
-            for (let y = 0; y < ROWS; y++)
-                for (let x = 0; x < COLS; x++)
-                    if (map[y][x] == "$")
-                        gold++;
-
-            if (gold == 0) {
-
-                level++;
-                timer += 20;
-                generate();
-
-            }
-
-        }
-
-        function drawTile(char, x, y) {
-
-            ctx.fillStyle = "#9bbc0f";
-
-            if (char == "#") {
-
-                ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
-
-            }
-
-            if (char == "$") {
-
-                ctx.fillStyle = "#ffcc00";
-                ctx.fillRect(x * TILE + 5, y * TILE + 5, 6, 6);
-
-            }
-
-        }
-
-        function render() {
-
-            ctx.fillStyle = "#0f380f";
-            ctx.fillRect(0, 0, 320, 240);
-
-            for (let y = 0; y < ROWS; y++)
-                for (let x = 0; x < COLS; x++)
-                    drawTile(map[y][x], x, y);
-
-            ctx.fillStyle = "#00ff66";
-            ctx.fillRect(player.x * TILE + 2, player.y * TILE + 2, 12, 12);
-
-            ctx.fillStyle = "#ff4444";
-
-            for (let e of enemies) {
-
-                ctx.fillRect(e.x * TILE + 2, e.y * TILE + 2, 12, 12);
-
-            }
-
-            ctx.fillStyle = "white";
-            ctx.font = "10px monospace";
-
-            ctx.fillText("LEVEL " + level, 5, 10);
-            ctx.fillText("SCORE " + score, 90, 10);
-            ctx.fillText("TIME " + timer, 220, 10);
-
-        }
-
-        setInterval(() => {
-
-            timer--;
-
-            if (timer <= 0) {
-
-                alert("TIME UP!\nScore : " + score);
-
-                score = 0;
-                level = 1;
-                timer = 60;
-                generate();
-
-            }
-
-        }, 1000);
-
-        function loop() {
-
-            update();
-            render();
-
-            requestAnimationFrame(loop);
-
-        }
-
-        loop();
-    </script>
-
-    <script>
-        document.querySelectorAll(".btn").forEach(btn => {
-
-            function press() {
-
-                keys[btn.dataset.key] = true;
-
-                btn.classList.add("active");
-
-                if (navigator.vibrate)
-                    navigator.vibrate(15);
-
-            }
-
-            function release() {
-
-                keys[btn.dataset.key] = false;
-
-                btn.classList.remove("active");
-
-            }
-
-            btn.addEventListener("touchstart", e => {
-                e.preventDefault();
-                press();
-            });
-
-            btn.addEventListener("touchend", release);
-
-            btn.addEventListener("mousedown", press);
-            btn.addEventListener("mouseup", release);
-            btn.addEventListener("mouseleave", release);
-
-        });
-    </script>
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
 </body>
+
 </html>
